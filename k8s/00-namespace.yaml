@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: citemind-ragops
+  labels:
+    app.kubernetes.io/name: citemind-ai-ragops
+    app.kubernetes.io/part-of: ragops-platform

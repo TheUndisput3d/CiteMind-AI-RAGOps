@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-data
+  namespace: citemind-ragops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 15Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: citemind-ragops
+  labels:
+    app: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - containerPort: 11434
+          env:
+            - name: OLLAMA_KEEP_ALIVE
+              value: "10m"
+            - name: OLLAMA_NUM_PARALLEL
+              value: "1"
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+          readinessProbe:
+            exec:
+              command: ["ollama", "list"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 11434
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: ollama-data
+          persistentVolumeClaim:
+            claimName: ollama-data
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-model-pull
+  namespace: citemind-ragops
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: ollama-model-pull
+          image: ollama/ollama:latest
+          envFrom:
+            - configMapRef:
+                name: citemind-config
+          command:
+            - /bin/sh
+            - -c
+            - |
+              until ollama list; do sleep 5; done
+              ollama pull "$OLLAMA_CHAT_MODEL"
+              ollama pull "$OLLAMA_EMBEDDING_MODEL"
+          env:
+            - name: OLLAMA_HOST
+              value: http://ollama:11434
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: citemind-ragops
+spec:
+  selector:
+    app: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: 11434
