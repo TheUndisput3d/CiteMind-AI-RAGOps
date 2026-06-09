@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-state
+  namespace: citemind-ragops
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: citemind-backend
+  namespace: citemind-ragops
+  labels:
+    app: citemind-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: citemind-backend
+  template:
+    metadata:
+      labels:
+        app: citemind-backend
+    spec:
+      containers:
+        - name: backend
+          image: citemind-ai-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: citemind-config
+          volumeMounts:
+            - name: backend-state
+              mountPath: /app/embedding_cache
+              subPath: embedding_cache
+            - name: backend-state
+              mountPath: /app/checkpoints.db
+              subPath: checkpoints.db
+            - name: backend-state
+              mountPath: /app/sessions.json
+              subPath: sessions.json
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8000
+            initialDelaySeconds: 40
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+      volumes:
+        - name: backend-state
+          persistentVolumeClaim:
+            claimName: backend-state
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: citemind-backend
+  namespace: citemind-ragops
+spec:
+  selector:
+    app: citemind-backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

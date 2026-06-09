@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: citemind-frontend
+  namespace: citemind-ragops
+  labels:
+    app: citemind-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: citemind-frontend
+  template:
+    metadata:
+      labels:
+        app: citemind-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: citemind-ai-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: citemind-frontend
+  namespace: citemind-ragops
+spec:
+  selector:
+    app: citemind-frontend
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
