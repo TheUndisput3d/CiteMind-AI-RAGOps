@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: citemind-backend
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - backend:8000
+
+  - job_name: qdrant
+    static_configs:
+      - targets:
+          - qdrant:6333
+
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - prometheus:9090
